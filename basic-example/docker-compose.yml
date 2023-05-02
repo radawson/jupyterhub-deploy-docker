@@ -5,9 +5,10 @@
 version: "3"
 
 services:
-  hub:
+  # Configuration for Hub+Proxy
+  jupyterhub:
     build:
-      context: .
+      context: ./jupyterhub
       dockerfile: Dockerfile.jupyterhub
       args:
         JUPYTERHUB_VERSION: latest
@@ -37,6 +38,31 @@ services:
       DOCKER_NOTEBOOK_DIR: /home/jovyan/work
       # Using this run command
       DOCKER_SPAWN_CMD: start-singleuser.sh
+    labels:                          # Traefik configuration.
+      - "traefik.enable=true"
+      - "traefik.frontend.rule=Host:jhub2.blackhorse.info"
+    restart: on-failure
+
+  # Configuration for reverse proxy
+  reverse-proxy:
+    image: traefik
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8080:8080"
+    volumes:
+      - ./reverse-proxy/traefik.toml:/etc/traefik/traefik.toml
+      # Bind Docker socket on the host so we can connect to the daemon from
+      # within the container
+      - "/var/run/docker.sock:/var/run/docker.sock:rw"
+      - /etc/certs:/etc/certs
+    restart: on-failure
+
+  # Configuration for the single-user servers
+  jupyterlab:
+    image: jupyterlab/scipy-notebook:latest
+    command: echo
+
 
 volumes:
   jupyterhub-data:
